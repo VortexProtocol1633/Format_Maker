@@ -1,0 +1,101 @@
+[
+  {
+    "type": "heading",
+    "content": "                                              CONFIDENTIAL",
+    "fontSize": 14,
+    "indent": 3,
+    "bold": true,
+    "italic": false,
+    "underline": false
+  },
+  {
+    "type": "heading",
+    "content": "                                 OFFR DATA",
+    "fontSize": 20,
+    "indent": 3,
+    "bold": true,
+    "italic": false,
+    "underline": false
+  },
+  {
+    "type": "subheading",
+    "content": "Primary",
+    "fontSize": 18,
+    "indent": 0,
+    "bold": false,
+    "italic": true,
+    "underline": false
+  },
+  {
+    "type": "input",
+    "content": "BA No",
+    "fontSize": 14,
+    "indent": 1,
+    "bold": false,
+    "italic": false,
+    "underline": false
+  },
+  {
+    "type": "input",
+    "content": "Rk",
+    "fontSize": 14,
+    "indent": 1,
+    "bold": false,
+    "italic": false,
+    "underline": false
+  },
+  {
+    "type": "input",
+    "content": "Name",
+    "fontSize": 14,
+    "indent": 1,
+    "bold": false,
+    "italic": false,
+    "underline": false
+  },
+  {
+    "type": "subsubheading",
+    "content": "Secondary",
+    "fontSize": 16,
+    "indent": 0,
+    "bold": false,
+    "italic": true,
+    "underline": false
+  },
+  {
+    "type": "input",
+    "content": "Course",
+    "fontSize": 14,
+    "indent": 1,
+    "bold": false,
+    "italic": false,
+    "underline": false
+  },
+  {
+    "type": "input",
+    "content": "Arms",
+    "fontSize": 14,
+    "indent": 1,
+    "bold": false,
+    "italic": false,
+    "underline": false
+  },
+  {
+    "type": "input",
+    "content": "Prev Unit",
+    "fontSize": 14,
+    "indent": 1,
+    "bold": false,
+    "italic": false,
+    "underline": false
+  },
+  {
+    "type": "footer",
+    "content": "                                              CONFIDENTIAL",
+    "fontSize": 14,
+    "indent": 3,
+    "bold": true,
+    "italic": false,
+    "underline": false
+  }
+]

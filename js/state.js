@@ -1,0 +1,224 @@
+/**
+ * FormForge — Form Builder & Document Scanner
+ * v6 (folder) · r8 (code) — ES modules refactor
+ *
+ * Module: FormState (state management)
+ *
+ * Holds the form block list, selection, fill-up inputs and templates.
+ * Also loads the built-in demo templates (templates/DEMO*.json) into the
+ * carousel. Demos are fetched at runtime, so they simply don't appear when
+ * the app is opened without a local server (file://).
+ */
+
+const FormState = {
+  blocks: [],
+  selectedIndex: 0,
+  editingIndex: null,
+  isFillupMode: false,
+  userInputs: {},
+  savedTemplates: [],
+  demoTemplates: [],
+  // Undo/redo history — snapshots of { blocks, userInputs }
+  undoStack: [],
+  redoStack: [],
+  _saveTimer: null,
+  _indTimer: null,
+  AUTOSAVE_KEY: 'formforge_current',
+
+  // Document settings for letterhead/footer
+  settings: {
+    letterheadLines: [
+      { text: 'UNCLASSIFIED', align: 'left', fontSize: 10, bold: false },
+      { text: 'DEPARTMENT OF DEFENSE', align: 'center', fontSize: 12, bold: true },
+      { text: 'FormForge · Official Correspondence', align: 'center', fontSize: 10, bold: false }
+    ],
+    footerFormat: 'Page {page} of {totalPages}',
+    footerAlign: 'right'
+  },
+
+  init() {
+    this.blocks = this.restoreCurrent() || this.getDefaultBlocks();
+    this.loadSavedTemplates();
+  },
+
+  /** Load the last autosaved form (blocks + fill-up values), if any. */
+  restoreCurrent() {
+    try {
+      const raw = localStorage.getItem(this.AUTOSAVE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!Array.isArray(data.blocks)) return null;
+      this.userInputs = data.userInputs || {};
+      return data.blocks;
+    } catch (_) { return null; }
+  },
+
+  /** Debounced autosave of the current form to localStorage. */
+  persist() {
+    const ind = document.getElementById('saveIndicator');
+    if (ind) {
+      ind.classList.remove('saved');
+      ind.classList.add('saving');
+      ind.innerHTML = '<i class="fas fa-cloud"></i> Saving…';
+    }
+    clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(this.AUTOSAVE_KEY, JSON.stringify({ blocks: this.blocks, userInputs: this.userInputs }));
+      } catch (_) { /* storage full / private mode — ignore */ }
+      if (ind) {
+        ind.classList.remove('saving');
+        ind.classList.add('saved');
+        ind.innerHTML = '<i class="fas fa-cloud"></i> Saved';
+        clearTimeout(this._indTimer);
+        this._indTimer = setTimeout(() => ind.classList.remove('saved'), 1600);
+      }
+    }, 400);
+  },
+
+  /** Snapshot the current state before a mutating operation. */
+  pushHistory() {
+    this.undoStack.push(JSON.stringify({ blocks: this.blocks, userInputs: this.userInputs }));
+    if (this.undoStack.length > 50) this.undoStack.shift();
+    this.redoStack = [];
+  },
+
+  undo() {
+    if (this.undoStack.length === 0) return false;
+    const snap = JSON.parse(this.undoStack.pop());
+    this.redoStack.push(JSON.stringify({ blocks: this.blocks, userInputs: this.userInputs }));
+    this.restoreSnapshot(snap);
+    return true;
+  },
+
+  redo() {
+    if (this.redoStack.length === 0) return false;
+    const snap = JSON.parse(this.redoStack.pop());
+    this.undoStack.push(JSON.stringify({ blocks: this.blocks, userInputs: this.userInputs }));
+    this.restoreSnapshot(snap);
+    return true;
+  },
+
+  restoreSnapshot(snap) {
+    this.blocks = snap.blocks;
+    this.userInputs = snap.userInputs || {};
+    if (this.selectedIndex >= this.blocks.length) {
+      this.selectedIndex = Math.max(0, this.blocks.length - 1);
+    }
+    this.persist();
+  },
+
+  getDefaultBlocks() {
+    return [
+      { type: 'header', content: 'My Form', fontSize: 18, bold: true, italic: false, underline: false, indent: 0, align: 'left', spacingAfter: 2 },
+      { type: 'input', content: 'Full name', fontSize: 16, bold: false, italic: false, underline: false, indent: 0, align: 'left', spacingAfter: 2 },
+      { type: 'input', content: 'Email', fontSize: 16, bold: false, italic: false, underline: false, indent: 0, align: 'left', spacingAfter: 2 },
+      { type: 'signature', content: 'Signature', fontSize: 16, bold: false, italic: false, underline: false, indent: 0, align: 'left', spacingAfter: 2 },
+      { type: 'footer', content: 'Page 1', fontSize: 14, bold: false, italic: false, underline: false, indent: 0, align: 'left', spacingAfter: 2 },
+    ];
+  },
+
+  getBlocks() { return this.blocks; },
+
+  setBlocks(blocks) {
+    this.pushHistory();
+    this.blocks = blocks;
+    this.selectedIndex = 0;
+    this.userInputs = {};
+    this.persist();
+  },
+
+  addBlock(block) {
+    this.pushHistory();
+    this.blocks.push(block);
+    this.selectedIndex = this.blocks.length - 1;
+    this.persist();
+  },
+
+  updateBlock(index, block) {
+    if (index >= 0 && index < this.blocks.length) {
+      this.pushHistory();
+      this.blocks[index] = block;
+      this.persist();
+    }
+  },
+
+  removeBlock(index) {
+    if (index >= 0 && index < this.blocks.length) {
+      this.pushHistory();
+      this.blocks.splice(index, 1);
+      if (this.selectedIndex >= this.blocks.length) {
+        this.selectedIndex = Math.max(0, this.blocks.length - 1);
+      }
+      this.persist();
+    }
+  },
+
+  duplicateBlock(index) {
+    if (index < 0 || index >= this.blocks.length) return;
+    this.pushHistory();
+    const original = this.blocks[index];
+    const clone = structuredClone(original);
+    this.blocks.splice(index + 1, 0, clone);
+    this.selectedIndex = index + 1;
+    this.persist();
+  },
+
+  moveBlock(fromIndex, toIndex) {
+    if (fromIndex !== toIndex && fromIndex >= 0 && toIndex >= 0) {
+      this.pushHistory();
+      const [moved] = this.blocks.splice(fromIndex, 1);
+      this.blocks.splice(toIndex, 0, moved);
+      this.selectedIndex = toIndex;
+      this.persist();
+    }
+  },
+
+  clearAll() {
+    this.pushHistory();
+    this.blocks = [];
+    this.selectedIndex = 0;
+    this.userInputs = {};
+    this.persist();
+  },
+
+  loadSavedTemplates() {
+    try {
+      const data = localStorage.getItem('formforge_templates');
+      this.savedTemplates = data ? JSON.parse(data) : [];
+    } catch (_) { this.savedTemplates = []; }
+  },
+
+  saveTemplate(name, blocks) {
+    const entry = { name, blocks: JSON.parse(JSON.stringify(blocks)), date: Date.now() };
+    this.savedTemplates.push(entry);
+    localStorage.setItem('formforge_templates', JSON.stringify(this.savedTemplates));
+  },
+
+  deleteTemplate(name) {
+    this.savedTemplates = this.savedTemplates.filter(t => t.name !== name);
+    localStorage.setItem('formforge_templates', JSON.stringify(this.savedTemplates));
+  },
+
+  /** Fetch the built-in demo templates so they appear in the carousel. */
+  async loadDemoTemplates() {
+    const candidates = [
+      { file: 'templates/DEMO1.json', name: 'OFFR Data (Demo)' },
+      { file: 'templates/DEMO2.json', name: 'Simple Form (Demo)' }
+    ];
+    const loaded = [];
+    for (const candidate of candidates) {
+      try {
+        const res = await fetch(candidate.file, { cache: 'no-store' });
+        if (!res.ok) continue;
+        const blocks = await res.json();
+        if (Array.isArray(blocks)) loaded.push({ name: candidate.name, blocks });
+      } catch (_) {
+        // e.g. app opened via file:// — demos are skipped silently
+      }
+    }
+    this.demoTemplates = loaded;
+  }
+};
+
+export default FormState;

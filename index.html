@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5" />
+  <title>FormForge · Builder &amp; Export</title>
+  <!-- Font Awesome Icons (CSS with CDN fallback) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+        onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css';" />
+  <!-- CDN loader: tries each library from a backup CDN, reports failures so
+       the app can disable affected features and show a warning banner. -->
+  <script>
+  (function () {
+    'use strict';
+    const CDN = {
+      status: {},
+      failures: [],
+      settled: false,
+      _loadScript(src) {
+        return new Promise((resolve) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.async = true;
+          s.onload = () => resolve(true);
+          s.onerror = () => resolve(false);
+          document.head.appendChild(s);
+        });
+      },
+      async load(name, urls, check) {
+        this.status[name] = 'loading';
+        for (const url of urls) {
+          if ((await this._loadScript(url)) && check()) {
+            this.status[name] = 'ok';
+            return;
+          }
+        }
+        this.status[name] = 'failed';
+        this.failures.push(name);
+      },
+      finish() {
+        this.settled = true;
+        // Dispatch on document (bubbles up to window): document listeners
+        // (js/app.js) fire at the target phase and window listeners
+        // (js/scanner.js) fire as the event bubbles — both must receive it.
+        document.dispatchEvent(new CustomEvent('formforge:libs-settled', { detail: this.status }));
+      }
+    };
+    window.FormForgeCDN = CDN;
+  })();
+  </script>
+  <script>
+  (async function () {
+    'use strict';
+    const CDN = window.FormForgeCDN;
+    // jspdf must be ready before autotable patches it, hence the await
+    await CDN.load('jspdf', [
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
+    ], () => !!(window.jspdf && window.jspdf.jsPDF));
+    await CDN.load('autotable', [
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js',
+      'https://unpkg.com/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js'
+    ], () => !!(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable));
+    // pdf.js / mammoth / docx are independent — load them in parallel and only
+    // report "settled" once EVERY library has finished, so listeners (pdf.js
+    // worker setup, feature disabling, warning banner) see the final status.
+    await Promise.all([
+      CDN.load('pdfjs', [
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+        'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',
+        'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js'
+      ], () => !!(window.pdfjsLib && window.pdfjsLib.getDocument)),
+      CDN.load('mammoth', [
+        'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
+        'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js',
+        'https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js'
+      ], () => !!(window.mammoth && window.mammoth.convertToHtml)),
+      CDN.load('docx', [
+        'https://cdn.jsdelivr.net/npm/docx@8.2.2/build/index.umd.min.js',
+        'https://unpkg.com/docx@8.2.2/build/index.umd.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.2/build/index.umd.min.js'
+      ], () => !!(window.docx || window.Docx))
+    ]);
+    CDN.finish();
+  })();
+  </script>
+  <!-- Fonts: Arial (app default) + webfont options for blocks (Sora, Inter, Poppins) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<!-- CDN warning banner (shown when a library failed to load) -->
+<div id="libWarningBanner" class="lib-warning-banner hidden" role="alert"></div>
+<div class="app-wrapper" id="app">
+  <!-- BRAND HEADER -->
+  <div class="brand-header">
+    <div class="logo-area">
+      <div class="logo-icon"><i class="fas fa-hammer"></i></div>
+      <span class="logo-text">FormForge</span>
+      <span class="version-badge">v6 · r11</span>
+    </div>
+    <div class="header-actions">
+      <span id="saveIndicator" class="save-indicator" role="status"><i class="fas fa-cloud"></i> Saved</span>
+      <button class="dark-toggle" id="darkToggle"><i class="fas fa-moon"></i> Dark</button>
+      <button class="btn-icon header-link" id="creatorBtn" style="background:#8b5cf6; color:white;"><i class="fas fa-user-astronaut"></i> Creator</button>
+      <button class="btn-icon header-link" id="aboutBtn" style="background:#6366f1; color:white;"><i class="fas fa-info-circle"></i> About</button>
+    </div>
+  </div>
+
+  <!-- TEMPLATE CAROUSEL (glass) -->
+  <div class="template-carousel glass">
+    <i class="fas fa-layer-group" style="color:#6366f1;"></i>
+    <span style="font-weight:500; font-size:0.9rem;">Templates</span>
+    <div class="carousel-scroll" id="templateCarousel"></div>
+    <div class="carousel-actions">
+      <button class="btn-icon" id="saveTemplateBtn"><i class="fas fa-save"></i> Save</button>
+      <button class="btn-icon" id="loadTemplateBtn"><i class="fas fa-folder-open"></i> Load</button>
+      <button class="btn-icon" id="scanDocumentBtn" style="background: #6366f1; color: white;"><i class="fas fa-file-import"></i> Scan Doc</button>
+      <button class="btn-icon" id="helpBtn" style="background: #22c55e; color: white;"><i class="fas fa-question-circle"></i> Help</button>
+    </div>
+  </div>
+
+  <!-- BUILDER GRID -->
+  <div class="builder-grid">
+    <!-- Left: Builder -->
+    <div class="panel glass">
+      <div class="panel-header">
+        <h3><i class="fas fa-pencil-alt" style="color:#6366f1;"></i>Form builder</h3>
+        <span id="dragHint">drag to reorder</span>
+      </div>
+      <div class="block-list" id="blockList"></div>
+      <div class="add-block-trigger">
+        <button class="btn-add-block" id="openAddBlockModal"><i class="fas fa-plus-circle"></i> Add block</button>
+        <button class="btn-danger" id="clearAllBtn"><i class="fas fa-trash-alt"></i> New</button>
+      </div>
+      <div style="margin-top:1rem; display:flex; gap:0.6rem; flex-wrap:wrap;">
+        <button class="btn-secondary" id="editSelectedBtn"><i class="fas fa-edit"></i> Edit</button>
+        <button class="btn-secondary" id="deleteSelectedBtn"><i class="fas fa-trash-alt"></i> Delete</button>
+        <button class="btn-secondary" id="duplicateSelectedBtn"><i class="fas fa-copy"></i> Duplicate</button>
+      </div>
+    </div>
+
+    <!-- Right: Preview + Export -->
+    <div class="preview-paper glass">
+      <div class="preview-header">
+        <h3><i class="fas fa-eye" style="color:#6366f1;"></i> Preview</h3>
+        <div class="mode-toggle">
+          <button id="modeBuilder" class="active"><i class="fas fa-pencil-ruler"></i> Build</button>
+          <button id="modeFillup"><i class="fas fa-pen-fancy"></i> Fill-up</button>
+        </div>
+      </div>
+      <div class="preview-content" id="previewContent"></div>
+      <div class="export-actions">
+        <button class="btn-primary" id="previewPdfBtn"><i class="fas fa-file-pdf"></i> PDF</button>
+        <button class="btn-primary" id="previewTxtBtn"><i class="fas fa-file-alt"></i> TXT</button>
+        <button class="btn-success" id="previewDocxBtn"><i class="fas fa-file-word"></i> DOCX</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add / Edit block -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal-box" id="addEditModalBox">
+    <h4 id="modalTitle"><i class="fas fa-pen"></i> Add / Edit block</h4>
+    <div class="modal-scroll-content">
+      <label>Block type</label>
+      <select id="modalTypeSelect">
+        <option value="input">Input</option>
+        <option value="heading">Heading</option>
+        <option value="subheading">Sub-heading</option>
+        <option value="subsubheading">Sub-sub-heading</option>
+        <option value="signature">Signature</option>
+        <option value="header">Header</option>
+        <option value="footer">Footer</option>
+        <option value="page">Page number</option>
+        <option value="table">Table</option>
+        <option value="numbered">Numbered Outline</option>
+      </select>
+      <label>Content / Label</label>
+      <input type="text" id="modalContentInput" placeholder="Text content..." />
+      <label>Font size (px)</label>
+      <input type="number" id="modalFontSize" value="16" min="10" max="48" />
+      <label>Font</label>
+      <select id="modalFont"></select>
+      <label>Indentation</label>
+      <select id="modalIndent">
+        <option value="0">None</option>
+        <option value="1">Level 1</option>
+        <option value="2">Level 2</option>
+        <option value="3">Level 3</option>
+      </select>
+      <label>Alignment</label>
+      <select id="modalAlign">
+        <option value="left">Left</option>
+        <option value="center">Center</option>
+        <option value="right">Right</option>
+        <option value="justify">Justify</option>
+      </select>
+      <label>Spacing after (points)</label>
+      <input type="number" id="modalSpacingAfter" value="2" min="0" max="48" />
+      <div class="modal-checkbox-group">
+        <label><input type="checkbox" id="modalBold" /> Bold</label>
+        <label><input type="checkbox" id="modalItalic" /> Italic</label>
+        <label><input type="checkbox" id="modalUnderline" /> Underline</label>
+      </div>
+      <!-- Table configuration (visible when type=table) -->
+      <div id="tableConfig" style="display:none; margin-top:1rem; border-top:1px solid rgba(0,0,0,0.06); padding-top:0.8rem;">
+        <label>Rows</label>
+        <input type="number" id="modalTableRows" value="3" min="1" max="10" />
+        <label>Columns</label>
+        <input type="number" id="modalTableCols" value="3" min="1" max="6" />
+        <div style="margin:0.5rem 0; display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" class="btn-secondary" id="addTableRowBtn" style="font-size:0.75rem;"><i class="fas fa-plus"></i> Add row</button>
+          <button type="button" class="btn-secondary" id="addTableColBtn" style="font-size:0.75rem;"><i class="fas fa-plus"></i> Add column</button>
+          <button type="button" class="btn-secondary" id="removeTableRowBtn" style="font-size:0.75rem;"><i class="fas fa-minus"></i> Remove row</button>
+          <button type="button" class="btn-secondary" id="removeTableColBtn" style="font-size:0.75rem;"><i class="fas fa-minus"></i> Remove col</button>
+        </div>
+        <div id="tableEditorContainer" style="margin-top:0.5rem; overflow-x:auto;">
+          <table id="tableEditor" style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Numbered outline config -->
+      <div id="numberedConfig" style="display:none; margin-top:1rem; border-top:1px solid rgba(0,0,0,0.06); padding-top:0.8rem;">
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+          <button type="button" class="btn-secondary" id="numberedAddPoint" style="font-size:0.75rem;"><i class="fas fa-plus"></i> Add point</button>
+          <button type="button" class="btn-secondary" id="numberedAddSub" style="font-size:0.75rem;"><i class="fas fa-plus"></i> Add sub-point</button>
+          <button type="button" class="btn-secondary" id="numberedDelete" style="font-size:0.75rem; color:#ef4444;"><i class="fas fa-trash"></i> Delete</button>
+        </div>
+        <div id="numberedEditor" style="max-height:200px; overflow-y:auto; border:1px solid rgba(0,0,0,0.06); border-radius:0.8rem; padding:0.5rem;">
+          <ul id="numberedTreeEditor" style="list-style:none; padding-left:0;"></ul>
+        </div>
+        <!-- Point-specific actions -->
+        <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" class="btn-secondary" id="numberedToggleInput" style="font-size:0.75rem;"><i class="fas fa-edit"></i> Toggle input field</button>
+          <button type="button" class="btn-secondary" id="numberedInsertTable" style="font-size:0.75rem;"><i class="fas fa-table"></i> Insert table</button>
+          <button type="button" class="btn-secondary" id="numberedDuplicatePoint" style="font-size:0.75rem;"><i class="fas fa-copy"></i> Duplicate point</button>
+        </div>
+        <div id="numberedFeedback" style="font-size:0.8rem; color:#6366f1; margin-top:0.3rem; min-height:1.2rem; transition: opacity 0.3s;"></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
+      <button class="btn-primary" id="modalSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="modal-overlay hidden" id="helpModal">
+  <div class="modal-box" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+    <h4><i class="fas fa-lightbulb" style="color:#f59e0b;"></i> How to Scan Documents</h4>
+    
+    <div style="margin: 1rem 0; line-height: 1.6;">
+      <p><strong>📄 Supported file types:</strong> PDF and DOCX files</p>
+      
+      <div style="background: rgba(99,102,241,0.08); border-radius: 1.2rem; padding: 1rem; margin: 0.8rem 0;">
+        <p style="font-weight:600; color:#6366f1; margin-bottom:0.5rem;">📋 Sample Document Format</p>
+        <p style="font-size:0.9rem; margin-bottom:0.3rem;"><strong>Header:</strong> Your Form Title (at the very top, large font)</p>
+        <p style="font-size:0.9rem; margin-bottom:0.3rem;"><strong>Input fields:</strong> Full Name: (ends with colon)</p>
+        <p style="font-size:0.9rem; margin-bottom:0.3rem;"><strong>Input fields:</strong> Email Address: (ends with colon)</p>
+        <p style="font-size:0.9rem; margin-bottom:0.3rem;"><strong>Sub-heading:</strong> Personal Information (medium font)</p>
+        <p style="font-size:0.9rem; margin-bottom:0.3rem;"><strong>Input:</strong> Date of Birth: (ends with colon)</p>
+        <p style="font-size:0.9rem; margin-bottom:0.3rem;"><strong>Signature:</strong> Signature (contains the word "signature")</p>
+        <p style="font-size:0.9rem; margin-bottom:0.3rem;"><strong>Footer:</strong> Page 1 (at the bottom)</p>
+      </div>
+      
+      <div style="background: rgba(34,197,94,0.08); border-radius: 1.2rem; padding: 1rem; margin: 0.8rem 0;">
+        <p style="font-weight:600; color:#22c55e; margin-bottom:0.5rem;">📝 Sample Document Formats</p>
+        
+        <div style="margin-bottom: 0.8rem;">
+          <p style="font-size:0.9rem; font-weight:500;">Example 1: Numbered Fields</p>
+          <pre style="background: rgba(0,0,0,0.05); padding: 0.8rem; border-radius: 0.8rem; font-size: 0.8rem; white-space: pre-wrap; word-wrap: break-word; margin: 0.3rem 0;">
+<strong>OFFR DATA</strong>
+<strong>MAIN DETAILS</strong>
+1. BA NO: _______________
+2. RK: ___________________
+3. NAME: _________________
+<strong>OTHER DETAILS</strong>
+4. COURSE: _______________
+5. PREV UNIT: ____________
+<strong>ADDL DETAILS</strong>
+6. PHONE NUMBER: _________
+7. EMAIL ADDRESS: _________
+Signature: ____________________
+Date: _________________________
+Page 1 of 1</pre>
+        </div>
+        
+        <div>
+          <p style="font-size:0.9rem; font-weight:500;">Example 2: Simple Form</p>
+          <pre style="background: rgba(0,0,0,0.05); padding: 0.8rem; border-radius: 0.8rem; font-size: 0.8rem; white-space: pre-wrap; word-wrap: break-word; margin: 0.3rem 0;">
+<strong>Employment Application Form</strong>
+Full Name: _________________________________
+Email Address: _____________________________
+Phone Number: _____________________________
+<em>Personal Details</em>
+Date of Birth: _____________________________
+Current Address: ___________________________
+<em>Professional Information</em>
+Position Applied For: ______________________
+Years of Experience: _______________________
+Signature: ________________________________
+Date: ____________________________________
+Page 1 of 1</pre>
+        </div>
+      </div>
+      
+      <div style="background: rgba(239,68,68,0.08); border-radius: 1.2rem; padding: 1rem; margin: 0.8rem 0;">
+        <p style="font-weight:600; color:#ef4444; margin-bottom:0.3rem;">⚠️ Troubleshooting</p>
+        <p style="font-size:0.9rem;">If scanning fails:</p>
+        <ul style="padding-left: 1.5rem; font-size:0.9rem;">
+          <li>Ensure your PDF has selectable text (not scanned images)</li>
+          <li>Check that your DOCX file is not corrupted or password-protected</li>
+          <li>Try simplifying your document format if the scan fails</li>
+          <li>For PDFs, ensure they were created from a text editor, not scanned</li>
+        </ul>
+      </div>
+      
+      <p><strong>🔄 After scanning:</strong> The detected form blocks will appear in the builder. You can edit, reorder, or delete them as needed.</p>
+    </div>
+    
+    <div style="background: rgba(99,102,241,0.05); border-radius: 1rem; padding: 0.8rem; margin: 1rem 0; text-align: center;">
+      <p style="font-size:0.85rem; opacity:0.7;">
+        <i class="fas fa-download" style="color:#6366f1;"></i> 
+        <a href="#" id="downloadSamplePdf" style="color:#6366f1; text-decoration:none; font-weight:500;">Download Sample PDF</a> 
+        <span style="margin:0 0.5rem;">|</span> 
+        <i class="fas fa-download" style="color:#22c55e;"></i> 
+        <a href="#" id="downloadSampleDocx" style="color:#22c55e; text-decoration:none; font-weight:500;">Download Sample DOCX</a>
+      </p>
+    </div>
+    
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeHelpBtn">Got it!</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCAN DOCUMENT MODAL -->
+<div class="modal-overlay hidden" id="scanModal">
+  <div class="modal-box" style="max-width: 600px;">
+    <h4><i class="fas fa-file-import" style="color:#6366f1;"></i> Scan Document</h4>
+    <p style="margin: 0.5rem 0 1rem 0; opacity: 0.7;">Upload a PDF or DOCX to auto-generate form blocks</p>
+    <div style="border: 2px dashed rgba(99,102,241,0.3); border-radius: 2rem; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s;" id="dropZone">
+      <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: #6366f1; margin-bottom: 0.5rem;"></i>
+      <p><strong>Drop your file here</strong> or click to browse</p>
+      <p style="font-size: 0.8rem; opacity: 0.5;">Supported: PDF, DOCX</p>
+      <input type="file" id="scanFileInput" accept=".pdf,.docx" style="display: none;" />
+    </div>
+    <div id="scanProgress" style="display: none; margin: 1rem 0;">
+      <div style="background: rgba(99,102,241,0.1); border-radius: 60px; height: 8px; overflow: hidden;">
+        <div id="scanProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 60px; transition: width 0.3s;"></div>
+      </div>
+      <p id="scanStatus" style="text-align: center; font-size: 0.9rem; margin-top: 0.5rem;">Processing...</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeScanBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF PREVIEW MODAL -->
+<div class="modal-overlay hidden" id="pdfPreviewOverlay">
+  <div class="modal-box" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+    <h4><i class="fas fa-file-pdf" style="color:#ef4444;"></i> PDF Preview</h4>
+    <div id="pdfPreviewContent" style="background: white; padding: 1.5rem; border-radius: 1rem; min-height: 300px;"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closePdfPreviewBtn">Close</button>
+      <button class="btn-primary" id="downloadPdfFromPreviewBtn"><i class="fas fa-download"></i> Download PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- TXT PREVIEW MODAL -->
+<div class="modal-overlay hidden" id="txtPreviewOverlay">
+  <div class="modal-box" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+    <h4><i class="fas fa-file-alt" style="color:#3b82f6;"></i> TXT Preview</h4>
+    <pre id="txtPreviewContent" style="background: white; padding: 1.5rem; border-radius: 1rem; min-height: 300px; white-space: pre-wrap; word-wrap: break-word;"></pre>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeTxtPreviewBtn">Close</button>
+      <button class="btn-primary" id="downloadTxtFromPreviewBtn"><i class="fas fa-download"></i> Download TXT</button>
+    </div>
+  </div>
+</div>
+
+<!-- DOCX PREVIEW MODAL -->
+<div class="modal-overlay hidden" id="docxPreviewOverlay">
+  <div class="modal-box" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+    <h4><i class="fas fa-file-word" style="color:#22c55e;"></i> DOCX Preview</h4>
+    <div id="docxPreviewContent" style="background: white; padding: 1.5rem; border-radius: 1rem; min-height: 300px;"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeDocxPreviewBtn">Close</button>
+      <button class="btn-success" id="downloadDocxFromPreviewBtn"><i class="fas fa-download"></i> Download DOCX</button>
+    </div>
+  </div>
+</div>
+
+<!-- ABOUT / CREATOR MODAL (tabs) -->
+<div class="modal-overlay hidden" id="aboutModal">
+  <div class="modal-box about-box" style="max-width: 720px; max-height: 88vh; overflow-y: auto;">
+    <h4 id="aboutModalTitle"><i class="fas fa-info-circle" style="color:#6366f1;"></i> About FormForge</h4>
+    <div class="about-tabs" role="tablist">
+      <button type="button" class="about-tab active" data-tab="about" role="tab"><i class="fas fa-info-circle"></i> About</button>
+      <button type="button" class="about-tab" data-tab="creator" role="tab"><i class="fas fa-user-astronaut"></i> From the Creator</button>
+      <button type="button" class="about-tab" data-tab="changelog" role="tab"><i class="fas fa-history"></i> Changelog</button>
+      <button type="button" class="about-tab" data-tab="credits" role="tab"><i class="fas fa-heart"></i> Credits</button>
+    </div>
+
+    <div class="about-pane active" data-pane="about">
+      <p class="about-lede">FormForge is a form builder and document scanner that lives entirely in your browser — build, preview, and export official forms as PDF, TXT, or DOCX without uploading anything.</p>
+      <div class="about-section">
+        <h5><i class="fas fa-rocket" style="color:#6366f1;"></i> Quick start</h5>
+        <ol>
+          <li><strong>Add blocks</strong> — inputs, headings, tables, and numbered outlines from the <em>Form builder</em> panel.</li>
+          <li><strong>Build &amp; fill</strong> — switch between <em>Build</em> and <em>Fill-up</em> mode to preview the form as a user would see it.</li>
+          <li><strong>Export</strong> — generate a PDF, TXT, or DOCX with one click. You can also <em>Scan Doc</em> a PDF/DOCX to auto-detect blocks.</li>
+        </ol>
+      </div>
+      <div class="about-section">
+        <h5><i class="fas fa-shield-alt" style="color:#22c55e;"></i> Privacy</h5>
+        <p>Everything stays on your machine — blocks, fill-up values, and templates are saved only in your browser&rsquo;s local storage. Nothing is uploaded anywhere.</p>
+      </div>
+      <div class="about-section">
+        <h5><i class="fas fa-star" style="color:#f59e0b;"></i> Highlights</h5>
+        <ul>
+          <li>Glass UI with dark mode &amp; live preview</li>
+          <li>Numbered outlines with sub-points, input fields, and nested tables</li>
+          <li>PDF / DOCX scanning, template carousel, autosave &amp; undo/redo</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="about-pane" data-pane="creator">
+      <!-- Profile card: photo (from the "From The Creator" folder) with a
+           monogram fallback while the image isn't added yet -->
+      <div class="creator-card">
+        <div class="creator-photo-wrap">
+          <img src="From The Creator/creator.jpg" alt="Portrait of the creator"
+               class="creator-photo"
+               onerror="this.style.display='none'; var m=this.nextElementSibling; if(m){m.style.display='flex';}" />
+          <div class="creator-monogram" style="display:none;">MS</div>
+        </div>
+        <div class="creator-info">
+          <h4 class="creator-name">Md Masrur Masuk Shopnil</h4>
+          <p class="creator-tagline">&ldquo;You lose only when you give up trying&rdquo;</p>
+          <div class="creator-contacts">
+            <a class="creator-btn" href="mailto:smasrur1633@hotmail.com"><i class="fas fa-envelope"></i> Email</a>
+            <a class="creator-btn" href="https://github.com/VortexProtocol1633" target="_blank" rel="noopener"><i class="fab fa-github"></i> GitHub</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="about-section">
+        <h5><i class="fas fa-quote-left" style="color:#6366f1;"></i> A little about me</h5>
+        <p>Hi — I&rsquo;m the person behind FormForge, and no, I did not go to design school. I went to MIST (Military Institute of Science and Technology, Bangladesh), where they taught me a lot about engineering and approximately nothing about kerning or color theory. Everything you see here is self-taught, mildly obsessive, hobbyist-grade web design.</p>
+        <p>What I do know is the special kind of soul-crushing tedium that comes from filling out the same official form by hand for the fifth time because you smudged a box or wrote the date wrong. One day I got fed up enough to build a tool instead of complaining about it. FormForge spits out clean, printable forms in seconds, and can even scan an existing paper form back into something editable — like a very patient intern who never messes up the alignment.</p>
+        <p>It started as a weekend fix for my own paperwork problems and quietly turned into... this. I hope it saves you as much time (and printer ink) as it&rsquo;s saved me.</p>
+      </div>
+
+      <div class="about-section">
+        <h5><i class="fas fa-mug-hot" style="color:#f59e0b;"></i> Support</h5>
+        <p>If FormForge is useful to you, a coffee (or just a kind word) goes a long way. <a href="#" id="aboutSupportLink">Buy me a coffee ☕</a></p>
+      </div>
+    </div>
+
+    <div class="about-pane" data-pane="changelog">
+      <ul class="changelog">
+        <li><span class="chg-ver">r11</span> Font picker: every block can now use its own font — Times New Roman, Arial, Aptos, Poppins, Georgia, Courier New, Sora and more — applied in the live Preview (Build and Fill-up modes) and in the PDF and DOCX exports.</li>
+        <li><span class="chg-ver">r10</span> Screen-bound builder layout: scanning a large document no longer stretches the Form builder and Preview past the window edge — both sections stay on screen and scroll internally.</li>
+        <li><span class="chg-ver">r9</span> Outline fixes: tables inside outline points are now customizable (rows/cols/cells), deleted points never come back, and points added in the Add-block modal show up in the preview. Added autosave, undo/redo, toast notifications, and the About section.</li>
+        <li><span class="chg-ver">r8</span> ES-module refactor; scanner heuristics improved; HTML escaping everywhere (XSS fix); built-in demo templates in the carousel; accessible modals (focus trap, Esc-to-close); CDN fallbacks with a warning banner.</li>
+        <li><span class="chg-ver">v6</span> Glass redesign: animated background, dark mode, template carousel, PDF/DOCX/TXT export, document scanning.</li>
+      </ul>
+    </div>
+
+    <div class="about-pane" data-pane="credits">
+      <p class="about-lede">FormForge runs on these wonderful open-source libraries:</p>
+      <ul class="credits-list">
+        <li><a href="https://github.com/parallax/jsPDF" target="_blank" rel="noopener">jsPDF</a> — PDF generation</li>
+        <li><a href="https://github.com/simonbengtsson/jsPDF-AutoTable" target="_blank" rel="noopener">jsPDF-AutoTable</a> — table rendering in PDFs</li>
+        <li><a href="https://mozilla.github.io/pdf.js/" target="_blank" rel="noopener">PDF.js</a> — PDF text extraction for scanning</li>
+        <li><a href="https://github.com/mwilliamson/mammoth.js" target="_blank" rel="noopener">Mammoth.js</a> — DOCX text extraction for scanning</li>
+        <li><a href="https://github.com/dolanmiu/docx" target="_blank" rel="noopener">docx</a> — DOCX generation</li>
+        <li><a href="https://fontawesome.com" target="_blank" rel="noopener">Font Awesome</a> — icons</li>
+        <li><a href="https://fonts.google.com" target="_blank" rel="noopener">Sora &amp; Inter</a> — typefaces</li>
+      </ul>
+      <p style="opacity:0.7; font-size:0.85rem;">Made with 💜 — no servers, no tracking, just your browser.</p>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeAboutBtn">Got it!</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUY-ME-A-COFFEE POP-UP: shows the creator's donation QR (coffee.png) -->
+<div class="modal-overlay hidden" id="coffeeModal">
+  <div class="coffee-box">
+    <div class="coffee-aura" aria-hidden="true"></div>
+    <button class="coffee-close" id="closeCoffeeBtn" aria-label="Close pop-up"><i class="fas fa-times"></i></button>
+    <div class="coffee-head">
+      <div class="coffee-mug" aria-hidden="true"><i class="fas fa-mug-hot"></i></div>
+      <h4>Buy Me a Coffee</h4>
+      <p>If FormForge saved you time (or printer ink), a coffee keeps it brewing ☕</p>
+    </div>
+    <div class="coffee-qr-frame">
+      <img id="coffeeQrImg" src="From The Creator/coffee.png"
+           alt="Donation QR code — scan with your phone camera to buy the creator a coffee"
+           onerror="this.style.display='none';var f=document.getElementById('coffeeQrFallback');if(f){f.style.display='flex';}" />
+      <div class="coffee-qr-fallback" id="coffeeQrFallback" style="display:none;">
+        <i class="fas fa-qrcode"></i>
+        <span>Couldn&rsquo;t load the QR image — look for <em>From The Creator/coffee.png</em> ☕</span>
+      </div>
+    </div>
+    <p class="coffee-hint"><i class="fas fa-mobile-alt"></i> Point your phone camera at the code</p>
+  </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

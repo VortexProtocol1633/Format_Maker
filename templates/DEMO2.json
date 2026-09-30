@@ -1,0 +1,137 @@
+[
+  {
+    "type": "header",
+    "content": "Form",
+    "fontSize": 20,
+    "bold": true,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "subheading",
+    "content": "OFFR DATA",
+    "fontSize": 20,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "heading",
+    "content": "MAIN DETAILS",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "input",
+    "content": "BA NO",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "input",
+    "content": "RK",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "input",
+    "content": "NAME",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "heading",
+    "content": "OTHER DETAILS",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "input",
+    "content": "COURSE",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "input",
+    "content": "PREV UNIT",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "heading",
+    "content": "ADDL DETAILS",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "input",
+    "content": "PHONE NUMBER",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "input",
+    "content": "EMAIL ADDRESS",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "signature",
+    "content": "Signature: ____________________",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "input",
+    "content": "Date",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  },
+  {
+    "type": "page",
+    "content": "Page 1 of 1",
+    "fontSize": 16,
+    "bold": false,
+    "italic": false,
+    "underline": false,
+    "indent": 0
+  }
+]
