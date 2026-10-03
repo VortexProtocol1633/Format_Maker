@@ -1,5 +1,5 @@
 /**
- * FormForge — DOM Renderer
+ * Format_Maker — DOM Renderer
  *
  * Renders the block list (drag + keyboard reorder), the live preview
  * (build mode / fill-up mode) and the template carousel (built-in demos
@@ -17,6 +17,35 @@ const DOMRenderer = {
   previewContent: document.getElementById('previewContent'),
   templateCarousel: document.getElementById('templateCarousel'),
   dragHint: document.getElementById('dragHint'),
+  blockCount: document.getElementById('blockCount'),
+  // Active block-list filter (case-insensitive substring match)
+  filter: '',
+
+  /** Set the block-list filter and re-render just the list. */
+  setFilter(query) {
+    this.filter = (query || '').trim().toLowerCase();
+    this.renderBlockList();
+  },
+
+  /** Does this block match the active filter? */
+  matchesFilter(block) {
+    if (!this.filter) return true;
+    const label = (block.content || block.type || '').toLowerCase();
+    return label.includes(this.filter) ||
+      this.getTypeLabel(block.type).toLowerCase().includes(this.filter);
+  },
+
+  /** "12 blocks · 3 shown" style summary next to the search box. */
+  updateBlockCount(total, shown) {
+    if (!this.blockCount) return;
+    if (total === 0) {
+      this.blockCount.textContent = '';
+      return;
+    }
+    this.blockCount.textContent = this.filter && shown !== total
+      ? `${shown} of ${total}`
+      : `${total} block${total === 1 ? '' : 's'}`;
+  },
 
   render() {
     this.renderBlockList();
@@ -30,7 +59,17 @@ const DOMRenderer = {
     const blocks = FormState.getBlocks();
 
     if (blocks.length === 0) {
-      this.blockListEl.innerHTML = '<div style="padding:1rem; text-align:center; opacity:0.6;"><i class="fas fa-plus-circle"></i> Add a block</div>';
+      this.blockListEl.innerHTML = '<div class="block-empty"><i class="fas fa-plus-circle"></i> Add a block</div>';
+      this.updateBlockCount(0, 0);
+      return;
+    }
+
+    const visible = blocks.filter(b => this.matchesFilter(b));
+    this.updateBlockCount(blocks.length, visible.length);
+
+    if (visible.length === 0) {
+      this.blockListEl.innerHTML =
+        `<div class="block-empty"><i class="fas fa-search"></i> No blocks match &ldquo;${escapeHtml(this.filter)}&rdquo;</div>`;
       return;
     }
 
@@ -42,6 +81,7 @@ const DOMRenderer = {
     };
 
     blocks.forEach((block, idx) => {
+      if (!this.matchesFilter(block)) return;
       const div = document.createElement('div');
       div.className = `block-item ${idx === FormState.selectedIndex ? 'selected' : ''}`;
       div.draggable = true;
@@ -56,7 +96,7 @@ const DOMRenderer = {
       // label is escaped — it may contain user or scanned content
       div.innerHTML = `
         <i class="fas ${iconMap[block.type] || 'fa-cube'} drag-icon"></i>
-        <span style="flex:1; font-size:0.9rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(label)}</span>
+        <span class="block-label">${escapeHtml(label)}</span>
         <span class="block-type">${escapeHtml(typeLabel)}</span>
         <div class="block-actions">
           <button class="edit-block-btn" data-index="${idx}" title="Edit" aria-label="Edit block"><i class="fas fa-pen"></i></button>

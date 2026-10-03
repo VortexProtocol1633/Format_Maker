@@ -1,5 +1,5 @@
 /**
- * FormForge — Form Builder & Document Scanner
+ * Format_Maker — Form Builder & Document Scanner
  * v6 (folder) · r8 (code) — ES modules refactor
  *
  * Module: FormState (state management)
@@ -23,34 +23,104 @@ const FormState = {
   redoStack: [],
   _saveTimer: null,
   _indTimer: null,
-  AUTOSAVE_KEY: 'formforge_current',
+  AUTOSAVE_KEY: 'formatmaker_current',
+  TEMPLATES_KEY: 'formatmaker_templates',
+  PREFS_KEY: 'formatmaker_prefs',
+  // Keys written by the pre-rename "FormForge" build. Read once so an
+  // existing user's autosaved form and saved templates survive the rename.
+  LEGACY_KEYS: { current: 'formforge_current', templates: 'formforge_templates' },
 
   // Document settings for letterhead/footer
   settings: {
     letterheadLines: [
       { text: 'UNCLASSIFIED', align: 'left', fontSize: 10, bold: false },
       { text: 'DEPARTMENT OF DEFENSE', align: 'center', fontSize: 12, bold: true },
-      { text: 'FormForge · Official Correspondence', align: 'center', fontSize: 10, bold: false }
+      { text: 'Format_Maker · Official Correspondence', align: 'center', fontSize: 10, bold: false }
     ],
     footerFormat: 'Page {page} of {totalPages}',
     footerAlign: 'right'
   },
 
+  // User preferences (theme, accent, active tab) — persisted separately from
+  // the document so changing a preference never dirties the autosave history.
+  prefs: {
+    theme: 'light',      // 'light' | 'dark' | 'system'
+    accent: 'indigo',    // see ACCENTS below
+    activeTab: 'builder'
+  },
+
+  // Accent presets. The CSS defines an --accent-* custom-property set per
+  // value; switching only rewrites one attribute on <html>.
+  ACCENTS: ['indigo', 'violet', 'emerald', 'rose', 'amber'],
+
   init() {
+    this.loadPrefs();
     this.blocks = this.restoreCurrent() || this.getDefaultBlocks();
     this.loadSavedTemplates();
+  },
+
+  /** Read a localStorage key, transparently falling back to the legacy one. */
+  readStored(key, legacyKey) {
+    let raw = null;
+    try { raw = localStorage.getItem(key); } catch (_) { return null; }
+    if (raw !== null) return raw;
+    if (!legacyKey) return null;
+    try {
+      raw = localStorage.getItem(legacyKey);
+      if (raw !== null) {
+        // Copy forward once, then drop the old key so the rename is complete.
+        localStorage.setItem(key, raw);
+        localStorage.removeItem(legacyKey);
+      }
+    } catch (_) { /* private mode / storage disabled */ }
+    return raw;
+  },
+
+  loadPrefs() {
+    try {
+      const raw = localStorage.getItem(this.PREFS_KEY);
+      if (raw) this.prefs = Object.assign({}, this.prefs, JSON.parse(raw));
+    } catch (_) { /* keep defaults */ }
+  },
+
+  savePrefs() {
+    try { localStorage.setItem(this.PREFS_KEY, JSON.stringify(this.prefs)); }
+    catch (_) { /* storage disabled */ }
   },
 
   /** Load the last autosaved form (blocks + fill-up values), if any. */
   restoreCurrent() {
     try {
-      const raw = localStorage.getItem(this.AUTOSAVE_KEY);
+      const raw = this.readStored(this.AUTOSAVE_KEY, this.LEGACY_KEYS.current);
       if (!raw) return null;
       const data = JSON.parse(raw);
       if (!Array.isArray(data.blocks)) return null;
       this.userInputs = data.userInputs || {};
+      if (data.settings && Array.isArray(data.settings.letterheadLines)) {
+        this.settings = Object.assign({}, this.settings, data.settings);
+      }
       return data.blocks;
     } catch (_) { return null; }
+  },
+
+  /** Reset letterhead/footer settings back to the shipped defaults. */
+  resetSettings() {
+    this.settings = {
+      letterheadLines: [
+        { text: 'UNCLASSIFIED', align: 'left', fontSize: 10, bold: false },
+        { text: 'DEPARTMENT OF DEFENSE', align: 'center', fontSize: 12, bold: true },
+        { text: 'Format_Maker · Official Correspondence', align: 'center', fontSize: 10, bold: false }
+      ],
+      footerFormat: 'Page {page} of {totalPages}',
+      footerAlign: 'right'
+    };
+    this.persist();
+  },
+
+  /** Save letterhead/footer settings and repaint the header preview. */
+  updateSettings(patch) {
+    Object.assign(this.settings, patch);
+    this.persist();
   },
 
   /** Debounced autosave of the current form to localStorage. */
@@ -64,7 +134,11 @@ const FormState = {
     clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => {
       try {
-        localStorage.setItem(this.AUTOSAVE_KEY, JSON.stringify({ blocks: this.blocks, userInputs: this.userInputs }));
+        localStorage.setItem(this.AUTOSAVE_KEY, JSON.stringify({
+          blocks: this.blocks,
+          userInputs: this.userInputs,
+          settings: this.settings
+        }));
       } catch (_) { /* storage full / private mode — ignore */ }
       if (ind) {
         ind.classList.remove('saving');
@@ -184,20 +258,31 @@ const FormState = {
 
   loadSavedTemplates() {
     try {
-      const data = localStorage.getItem('formforge_templates');
-      this.savedTemplates = data ? JSON.parse(data) : [];
+      const data = this.readStored(this.TEMPLATES_KEY, this.LEGACY_KEYS.templates);
+      const parsed = data ? JSON.parse(data) : [];
+      this.savedTemplates = Array.isArray(parsed) ? parsed : [];
     } catch (_) { this.savedTemplates = []; }
   },
 
   saveTemplate(name, blocks) {
-    const entry = { name, blocks: JSON.parse(JSON.stringify(blocks)), date: Date.now() };
+    const entry = {
+      name,
+      blocks: JSON.parse(JSON.stringify(blocks)),
+      settings: JSON.parse(JSON.stringify(this.settings)),
+      date: Date.now()
+    };
     this.savedTemplates.push(entry);
-    localStorage.setItem('formforge_templates', JSON.stringify(this.savedTemplates));
+    this.persistTemplates();
   },
 
   deleteTemplate(name) {
     this.savedTemplates = this.savedTemplates.filter(t => t.name !== name);
-    localStorage.setItem('formforge_templates', JSON.stringify(this.savedTemplates));
+    this.persistTemplates();
+  },
+
+  persistTemplates() {
+    try { localStorage.setItem(this.TEMPLATES_KEY, JSON.stringify(this.savedTemplates)); }
+    catch (_) { /* storage full / private mode */ }
   },
 
   /** Fetch the built-in demo templates so they appear in the carousel. */

@@ -1,5 +1,5 @@
 /**
- * FormForge — Export Manager
+ * Format_Maker — Export Manager
  *
  * Converts the block list into TXT, PDF (jsPDF + autotable) and DOCX (docx).
  * All exports include the letterhead and footer settings from FormState.

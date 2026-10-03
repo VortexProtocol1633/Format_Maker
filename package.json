@@ -1,0 +1,37 @@
+{
+  "name": "format-maker",
+  "version": "1.0.0",
+  "description": "Browser-based form builder and document scanner. Build, fill, and export printable forms as PDF, DOCX, TXT, JSON, or print — nothing is uploaded.",
+  "keywords": [
+    "form-builder",
+    "document-scanner",
+    "pdf",
+    "docx",
+    "print",
+    "offline-first",
+    "no-dependencies"
+  ],
+  "license": "MIT",
+  "author": "Md Masrur Masuk Shopnil",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VortexProtocol1633/Format_Maker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/VortexProtocol1633/Format_Maker/issues"
+  },
+  "homepage": "https://github.com/VortexProtocol1633/Format_Maker#readme",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes serve .",
+    "dev": "npx --yes serve .",
+    "test": "node test/smoke.test.mjs"
+  },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "last 2 Edge versions"
+  ]
+}

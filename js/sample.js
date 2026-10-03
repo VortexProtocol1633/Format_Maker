@@ -1,5 +1,5 @@
 /**
- * FormForge — Sample Document Generator
+ * Format_Maker — Sample Document Generator
  *
  * Generates downloadable sample PDF (jsPDF) and DOCX (docx) files shown in
  * the Help modal. Guards give a friendly error if a CDN library failed.
@@ -26,7 +26,7 @@ const SampleGenerator = {
     doc.text('DEPARTMENT OF DEFENSE', pageWidth / 2, margin + 5, { align: 'center' });
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('FormForge · Official Correspondence', pageWidth / 2, margin + 12, { align: 'center' });
+    doc.text('Format_Maker · Official Correspondence', pageWidth / 2, margin + 12, { align: 'center' });
     y = margin + 22;
     doc.line(margin, y - 2, pageWidth - margin, y - 2);
 
@@ -58,7 +58,7 @@ const SampleGenerator = {
         doc.text('DEPARTMENT OF DEFENSE', pageWidth / 2, margin + 5, { align: 'center' });
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text('FormForge · Official Correspondence', pageWidth / 2, margin + 12, { align: 'center' });
+        doc.text('Format_Maker · Official Correspondence', pageWidth / 2, margin + 12, { align: 'center' });
         y = margin + 22;
         doc.line(margin, y - 2, pageWidth - margin, y - 2);
       }
@@ -84,7 +84,7 @@ const SampleGenerator = {
     const children = [
       new Paragraph({ children: [new TextRun({ text: 'UNCLASSIFIED', size: 16 })], spacing: { after: 60 } }),
       new Paragraph({ children: [new TextRun({ text: 'DEPARTMENT OF DEFENSE', size: 28, bold: true })], alignment: 'center', spacing: { after: 60 } }),
-      new Paragraph({ children: [new TextRun({ text: 'FormForge · Official Correspondence', size: 18 })], alignment: 'center', spacing: { after: 120 } }),
+      new Paragraph({ children: [new TextRun({ text: 'Format_Maker · Official Correspondence', size: 18 })], alignment: 'center', spacing: { after: 120 } }),
       new Paragraph({ children: [new TextRun({ text: '__________________________________________________', size: 12 })], spacing: { after: 120 } }),
       new Paragraph({ children: [new TextRun({ text: 'OFFR DATA', size: 28, bold: true })], spacing: { after: 200 } }),
       new Paragraph({ children: [new TextRun({ text: 'MAIN DETAILS', size: 22, bold: true })], spacing: { after: 150 } }),

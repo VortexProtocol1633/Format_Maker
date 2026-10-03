@@ -1,5 +1,5 @@
 /**
- * FormForge — Modal Manager
+ * Format_Maker — Modal Manager
  *
  * Add/edit block modal: block type, styling options, the in-modal table
  * editor (resize rows/columns, edit cells) and the numbered-outline editor

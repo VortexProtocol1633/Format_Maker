@@ -3,7 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5" />
-  <title>FormForge · Builder &amp; Export</title>
+  <title>Format_Maker — Form Builder, Scanner &amp; Export</title>
+  <meta name="description" content="Build, fill and export printable forms as PDF, DOCX or TXT. Scan an existing PDF/DOCX back into editable blocks. Runs entirely in your browser — nothing is uploaded." />
+  <meta name="theme-color" content="#6366f1" />
+  <meta name="author" content="Md Masrur Masuk Shopnil" />
+
+  <!-- Open Graph / Twitter: controls the link preview when shared -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Format_Maker — Form Builder, Scanner &amp; Export" />
+  <meta property="og:description" content="Build, fill and export printable forms as PDF, DOCX or TXT. Scan an existing PDF/DOCX back into editable blocks. 100% browser-based." />
+  <meta property="og:image" content="assets/social-preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/favicon.svg" />
   <!-- Font Awesome Icons (CSS with CDN fallback) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
         onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css';" />
@@ -42,16 +55,16 @@
         // Dispatch on document (bubbles up to window): document listeners
         // (js/app.js) fire at the target phase and window listeners
         // (js/scanner.js) fire as the event bubbles — both must receive it.
-        document.dispatchEvent(new CustomEvent('formforge:libs-settled', { detail: this.status }));
+        document.dispatchEvent(new CustomEvent('formatmaker:libs-settled', { detail: this.status }));
       }
     };
-    window.FormForgeCDN = CDN;
+    window.FormatMakerCDN = CDN;
   })();
   </script>
   <script>
   (async function () {
     'use strict';
-    const CDN = window.FormForgeCDN;
+    const CDN = window.FormatMakerCDN;
     // jspdf must be ready before autotable patches it, hence the await
     await CDN.load('jspdf', [
       'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
@@ -86,10 +99,12 @@
     CDN.finish();
   })();
   </script>
-  <!-- Fonts: Arial (app default) + webfont options for blocks (Sora, Inter, Poppins) -->
+  <!-- Fonts: Poppins drives the app chrome (headers, buttons, panels). Form
+       blocks keep their own per-block family (Arial, Times New Roman, …) so
+       exported documents are unaffected by the UI typeface. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -100,57 +115,71 @@
   <div class="brand-header">
     <div class="logo-area">
       <div class="logo-icon"><i class="fas fa-hammer"></i></div>
-      <span class="logo-text">FormForge</span>
-      <span class="version-badge">v6 · r11</span>
+      <span class="logo-text">Format_Maker</span>
+      <span class="version-badge">v1.0</span>
     </div>
     <div class="header-actions">
       <span id="saveIndicator" class="save-indicator" role="status"><i class="fas fa-cloud"></i> Saved</span>
-      <button class="dark-toggle" id="darkToggle"><i class="fas fa-moon"></i> Dark</button>
-      <button class="btn-icon header-link" id="creatorBtn" style="background:#8b5cf6; color:white;"><i class="fas fa-user-astronaut"></i> Creator</button>
-      <button class="btn-icon header-link" id="aboutBtn" style="background:#6366f1; color:white;"><i class="fas fa-info-circle"></i> About</button>
+      <button class="btn-icon" id="settingsBtn" title="Letterhead &amp; footer settings"><i class="fas fa-sliders-h"></i> Settings</button>
+      <button class="btn-icon" id="exportFormBtn" title="Export form as a .json file"><i class="fas fa-file-export"></i> Export</button>
+      <button class="btn-icon" id="importFormBtn" title="Import a .json form file"><i class="fas fa-file-import"></i> Import</button>
+      <button class="btn-icon" id="printBtn" title="Print this form"><i class="fas fa-print"></i> Print</button>
+      <button class="dark-toggle" id="darkToggle" aria-label="Toggle dark mode"><i class="fas fa-moon"></i> Dark</button>
+      <button class="btn-icon" id="creatorBtn" style="background:#8b5cf6; color:white;"><i class="fas fa-user-astronaut"></i> Creator</button>
+      <button class="btn-icon" id="aboutBtn" style="background:#6366f1; color:white;"><i class="fas fa-info-circle"></i> About</button>
     </div>
   </div>
 
   <!-- TEMPLATE CAROUSEL (glass) -->
   <div class="template-carousel glass">
-    <i class="fas fa-layer-group" style="color:#6366f1;"></i>
-    <span style="font-weight:500; font-size:0.9rem;">Templates</span>
+    <i class="fas fa-layer-group" style="color:var(--accent);"></i>
+    <span class="carousel-label">Templates</span>
     <div class="carousel-scroll" id="templateCarousel"></div>
     <div class="carousel-actions">
       <button class="btn-icon" id="saveTemplateBtn"><i class="fas fa-save"></i> Save</button>
       <button class="btn-icon" id="loadTemplateBtn"><i class="fas fa-folder-open"></i> Load</button>
-      <button class="btn-icon" id="scanDocumentBtn" style="background: #6366f1; color: white;"><i class="fas fa-file-import"></i> Scan Doc</button>
+      <button class="btn-icon" id="scanDocumentBtn" style="background: var(--accent); color: white;"><i class="fas fa-file-import"></i> Scan Doc</button>
+      <button class="btn-icon" id="settingsBtnCarousel" title="Letterhead &amp; footer settings"><i class="fas fa-sliders-h"></i> Doc Settings</button>
       <button class="btn-icon" id="helpBtn" style="background: #22c55e; color: white;"><i class="fas fa-question-circle"></i> Help</button>
     </div>
   </div>
 
   <!-- BUILDER GRID -->
-  <div class="builder-grid">
-    <!-- Left: Builder -->
-    <div class="panel glass">
-      <div class="panel-header">
-        <h3><i class="fas fa-pencil-alt" style="color:#6366f1;"></i>Form builder</h3>
-        <span id="dragHint">drag to reorder</span>
+  <div class="builder-grid"><!-- Left: Builder -->
+      <div class="panel glass">
+        <div class="panel-header">
+          <h3><i class="fas fa-pencil-alt" style="color:var(--accent);"></i>Form builder</h3>
+          <span id="dragHint">drag to reorder</span>
+        </div>
+        <div class="block-toolbar">
+          <div class="search-box">
+            <i class="fas fa-search" aria-hidden="true"></i>
+            <input type="search" id="blockSearch" placeholder="Search blocks…" aria-label="Search blocks" autocomplete="off" />
+            <button type="button" class="search-clear hidden" id="blockSearchClear" aria-label="Clear search">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <span class="block-count" id="blockCount"></span>
+        </div>
+        <div class="block-list" id="blockList" role="list" aria-label="Form blocks"></div>
+        <div class="add-block-trigger">
+          <button class="btn-add-block" id="openAddBlockModal"><i class="fas fa-plus-circle"></i> Add block</button>
+          <button class="btn-danger" id="clearAllBtn"><i class="fas fa-trash-alt"></i> New</button>
+        </div>
+        <div class="row-actions">
+          <button class="btn-secondary" id="editSelectedBtn"><i class="fas fa-edit"></i> Edit</button>
+          <button class="btn-secondary" id="deleteSelectedBtn"><i class="fas fa-trash-alt"></i> Delete</button>
+          <button class="btn-secondary" id="duplicateSelectedBtn"><i class="fas fa-copy"></i> Duplicate</button>
+        </div>
       </div>
-      <div class="block-list" id="blockList"></div>
-      <div class="add-block-trigger">
-        <button class="btn-add-block" id="openAddBlockModal"><i class="fas fa-plus-circle"></i> Add block</button>
-        <button class="btn-danger" id="clearAllBtn"><i class="fas fa-trash-alt"></i> New</button>
-      </div>
-      <div style="margin-top:1rem; display:flex; gap:0.6rem; flex-wrap:wrap;">
-        <button class="btn-secondary" id="editSelectedBtn"><i class="fas fa-edit"></i> Edit</button>
-        <button class="btn-secondary" id="deleteSelectedBtn"><i class="fas fa-trash-alt"></i> Delete</button>
-        <button class="btn-secondary" id="duplicateSelectedBtn"><i class="fas fa-copy"></i> Duplicate</button>
-      </div>
-    </div>
 
     <!-- Right: Preview + Export -->
     <div class="preview-paper glass">
       <div class="preview-header">
-        <h3><i class="fas fa-eye" style="color:#6366f1;"></i> Preview</h3>
-        <div class="mode-toggle">
-          <button id="modeBuilder" class="active"><i class="fas fa-pencil-ruler"></i> Build</button>
-          <button id="modeFillup"><i class="fas fa-pen-fancy"></i> Fill-up</button>
+        <h3><i class="fas fa-eye" style="color:var(--accent);"></i> Preview</h3>
+        <div class="mode-toggle" role="group" aria-label="Preview mode">
+          <button id="modeBuilder" class="active" aria-pressed="true"><i class="fas fa-pencil-ruler"></i> Build</button>
+          <button id="modeFillup" aria-pressed="false"><i class="fas fa-pen-fancy"></i> Fill-up</button>
         </div>
       </div>
       <div class="preview-content" id="previewContent"></div>
@@ -158,6 +187,7 @@
         <button class="btn-primary" id="previewPdfBtn"><i class="fas fa-file-pdf"></i> PDF</button>
         <button class="btn-primary" id="previewTxtBtn"><i class="fas fa-file-alt"></i> TXT</button>
         <button class="btn-success" id="previewDocxBtn"><i class="fas fa-file-word"></i> DOCX</button>
+        <button class="btn-secondary" id="previewPrintBtn"><i class="fas fa-print"></i> Print</button>
       </div>
     </div>
   </div>
@@ -406,7 +436,7 @@ Page 1 of 1</pre>
 <!-- ABOUT / CREATOR MODAL (tabs) -->
 <div class="modal-overlay hidden" id="aboutModal">
   <div class="modal-box about-box" style="max-width: 720px; max-height: 88vh; overflow-y: auto;">
-    <h4 id="aboutModalTitle"><i class="fas fa-info-circle" style="color:#6366f1;"></i> About FormForge</h4>
+    <h4 id="aboutModalTitle"><i class="fas fa-info-circle" style="color:#6366f1;"></i> About Format_Maker</h4>
     <div class="about-tabs" role="tablist">
       <button type="button" class="about-tab active" data-tab="about" role="tab"><i class="fas fa-info-circle"></i> About</button>
       <button type="button" class="about-tab" data-tab="creator" role="tab"><i class="fas fa-user-astronaut"></i> From the Creator</button>
@@ -415,7 +445,7 @@ Page 1 of 1</pre>
     </div>
 
     <div class="about-pane active" data-pane="about">
-      <p class="about-lede">FormForge is a form builder and document scanner that lives entirely in your browser — build, preview, and export official forms as PDF, TXT, or DOCX without uploading anything.</p>
+      <p class="about-lede">Format_Maker is a form builder and document scanner that lives entirely in your browser — build, preview, and export official forms as PDF, TXT, or DOCX without uploading anything.</p>
       <div class="about-section">
         <h5><i class="fas fa-rocket" style="color:#6366f1;"></i> Quick start</h5>
         <ol>
@@ -431,9 +461,21 @@ Page 1 of 1</pre>
       <div class="about-section">
         <h5><i class="fas fa-star" style="color:#f59e0b;"></i> Highlights</h5>
         <ul>
-          <li>Glass UI with dark mode &amp; live preview</li>
+          <li>Glass UI with dark mode, accent colours &amp; live preview</li>
           <li>Numbered outlines with sub-points, input fields, and nested tables</li>
+          <li>Editable letterhead &amp; footer, plus PDF / DOCX / TXT / print export</li>
           <li>PDF / DOCX scanning, template carousel, autosave &amp; undo/redo</li>
+        </ul>
+      </div>
+      <div class="about-section">
+        <h5><i class="fas fa-keyboard" style="color:var(--accent);"></i> Keyboard shortcuts</h5>
+        <ul class="shortcut-list">
+          <li><kbd>Ctrl</kbd> + <kbd>F</kbd><span>Search blocks</span></li>
+          <li><kbd>Ctrl</kbd> + <kbd>D</kbd><span>Duplicate selected block</span></li>
+          <li><kbd>Ctrl</kbd> + <kbd>Z</kbd><span>Undo</span></li>
+          <li><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd><span>Redo</span></li>
+          <li><kbd>&uarr;</kbd> / <kbd>&darr;</kbd><span>Reorder the focused block</span></li>
+          <li><kbd>Esc</kbd><span>Close the topmost dialog</span></li>
         </ul>
       </div>
     </div>
@@ -460,29 +502,30 @@ Page 1 of 1</pre>
 
       <div class="about-section">
         <h5><i class="fas fa-quote-left" style="color:#6366f1;"></i> A little about me</h5>
-        <p>Hi — I&rsquo;m the person behind FormForge, and no, I did not go to design school. I went to MIST (Military Institute of Science and Technology, Bangladesh), where they taught me a lot about engineering and approximately nothing about kerning or color theory. Everything you see here is self-taught, mildly obsessive, hobbyist-grade web design.</p>
-        <p>What I do know is the special kind of soul-crushing tedium that comes from filling out the same official form by hand for the fifth time because you smudged a box or wrote the date wrong. One day I got fed up enough to build a tool instead of complaining about it. FormForge spits out clean, printable forms in seconds, and can even scan an existing paper form back into something editable — like a very patient intern who never messes up the alignment.</p>
+        <p>Hi — I&rsquo;m the person behind Format_Maker, and no, I did not go to design school. I went to MIST (Military Institute of Science and Technology, Bangladesh), where they taught me a lot about engineering and approximately nothing about kerning or color theory. Everything you see here is self-taught, mildly obsessive, hobbyist-grade web design.</p>
+        <p>What I do know is the special kind of soul-crushing tedium that comes from filling out the same official form by hand for the fifth time because you smudged a box or wrote the date wrong. One day I got fed up enough to build a tool instead of complaining about it. Format_Maker spits out clean, printable forms in seconds, and can even scan an existing paper form back into something editable — like a very patient intern who never messes up the alignment.</p>
         <p>It started as a weekend fix for my own paperwork problems and quietly turned into... this. I hope it saves you as much time (and printer ink) as it&rsquo;s saved me.</p>
       </div>
 
       <div class="about-section">
         <h5><i class="fas fa-mug-hot" style="color:#f59e0b;"></i> Support</h5>
-        <p>If FormForge is useful to you, a coffee (or just a kind word) goes a long way. <a href="#" id="aboutSupportLink">Buy me a coffee ☕</a></p>
+        <p>If Format_Maker is useful to you, a coffee (or just a kind word) goes a long way. <a href="#" id="aboutSupportLink">Buy me a coffee ☕</a></p>
       </div>
     </div>
 
     <div class="about-pane" data-pane="changelog">
       <ul class="changelog">
+        <li><span class="chg-ver">v1.0</span> Letterhead &amp; footer editor — control the lines printed above and below every exported page, with a live paper preview. New: Export/Import a whole form as <code>.json</code> (blocks + settings + answers), a Print button with a dedicated print stylesheet, and a search box to filter blocks in long scanned forms.</li>
+        <li><span class="chg-ver">v1.0</span> Interface refresh: Poppins across the app chrome, an accent-colour system, consistent button sizing/alignment, and a remembered dark-mode preference. Form blocks keep their own per-block font, so exported documents are unaffected.</li>
         <li><span class="chg-ver">r11</span> Font picker: every block can now use its own font — Times New Roman, Arial, Aptos, Poppins, Georgia, Courier New, Sora and more — applied in the live Preview (Build and Fill-up modes) and in the PDF and DOCX exports.</li>
         <li><span class="chg-ver">r10</span> Screen-bound builder layout: scanning a large document no longer stretches the Form builder and Preview past the window edge — both sections stay on screen and scroll internally.</li>
         <li><span class="chg-ver">r9</span> Outline fixes: tables inside outline points are now customizable (rows/cols/cells), deleted points never come back, and points added in the Add-block modal show up in the preview. Added autosave, undo/redo, toast notifications, and the About section.</li>
         <li><span class="chg-ver">r8</span> ES-module refactor; scanner heuristics improved; HTML escaping everywhere (XSS fix); built-in demo templates in the carousel; accessible modals (focus trap, Esc-to-close); CDN fallbacks with a warning banner.</li>
-        <li><span class="chg-ver">v6</span> Glass redesign: animated background, dark mode, template carousel, PDF/DOCX/TXT export, document scanning.</li>
       </ul>
     </div>
 
     <div class="about-pane" data-pane="credits">
-      <p class="about-lede">FormForge runs on these wonderful open-source libraries:</p>
+      <p class="about-lede">Format_Maker runs on these wonderful open-source libraries:</p>
       <ul class="credits-list">
         <li><a href="https://github.com/parallax/jsPDF" target="_blank" rel="noopener">jsPDF</a> — PDF generation</li>
         <li><a href="https://github.com/simonbengtsson/jsPDF-AutoTable" target="_blank" rel="noopener">jsPDF-AutoTable</a> — table rendering in PDFs</li>
@@ -490,13 +533,57 @@ Page 1 of 1</pre>
         <li><a href="https://github.com/mwilliamson/mammoth.js" target="_blank" rel="noopener">Mammoth.js</a> — DOCX text extraction for scanning</li>
         <li><a href="https://github.com/dolanmiu/docx" target="_blank" rel="noopener">docx</a> — DOCX generation</li>
         <li><a href="https://fontawesome.com" target="_blank" rel="noopener">Font Awesome</a> — icons</li>
-        <li><a href="https://fonts.google.com" target="_blank" rel="noopener">Sora &amp; Inter</a> — typefaces</li>
+        <li><a href="https://fonts.google.com" target="_blank" rel="noopener">Poppins, Sora &amp; Inter</a> — typefaces</li>
       </ul>
       <p style="opacity:0.7; font-size:0.85rem;">Made with 💜 — no servers, no tracking, just your browser.</p>
     </div>
 
     <div class="modal-actions">
       <button class="btn-secondary" id="closeAboutBtn">Got it!</button>
+    </div>
+  </div>
+</div>
+
+<!-- DOCUMENT SETTINGS MODAL (letterhead + footer) -->
+<div class="modal-overlay hidden" id="settingsModal">
+  <div class="modal-box settings-box" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+    <h4 id="settingsModalTitle"><i class="fas fa-sliders-h" style="color:var(--accent);"></i> Letterhead &amp; Footer</h4>
+    <p class="settings-hint">These appear at the top and bottom of every exported PDF and DOCX.</p>
+
+    <div class="modal-scroll-content">
+      <div class="settings-section">
+        <div class="settings-section-head">
+          <h5>Letterhead lines</h5>
+          <button type="button" class="btn-secondary btn-sm" id="addLetterheadBtn">
+            <i class="fas fa-plus"></i> Add line
+          </button>
+        </div>
+        <p class="letterhead-empty" id="letterheadEmpty" hidden>No letterhead lines — the exported page starts straight with the form.</p>
+        <div id="letterheadList" class="letterhead-list"></div>
+      </div>
+
+      <div class="settings-section">
+        <h5>Footer</h5>
+        <label for="settingsFooterFormat">Format <span class="hint-inline">(<code>{page}</code> and <code>{totalPages}</code> are replaced)</span></label>
+        <input type="text" id="settingsFooterFormat" placeholder="Page {page} of {totalPages}" />
+        <label for="settingsFooterAlign">Alignment</label>
+        <select id="settingsFooterAlign">
+          <option value="left">Left</option>
+          <option value="center">Center</option>
+          <option value="right">Right</option>
+        </select>
+      </div>
+
+      <div class="settings-section">
+        <h5>Preview</h5>
+        <div class="settings-preview" id="settingsPreview"></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="resetSettingsBtn"><i class="fas fa-undo"></i> Reset</button>
+      <button class="btn-secondary" id="closeSettingsBtn">Cancel</button>
+      <button class="btn-primary" id="applySettingsBtn">Apply</button>
     </div>
   </div>
 </div>
@@ -509,7 +596,7 @@ Page 1 of 1</pre>
     <div class="coffee-head">
       <div class="coffee-mug" aria-hidden="true"><i class="fas fa-mug-hot"></i></div>
       <h4>Buy Me a Coffee</h4>
-      <p>If FormForge saved you time (or printer ink), a coffee keeps it brewing ☕</p>
+      <p>If Format_Maker saved you time (or printer ink), a coffee keeps it brewing ☕</p>
     </div>
     <div class="coffee-qr-frame">
       <img id="coffeeQrImg" src="From The Creator/coffee.png"
@@ -523,6 +610,9 @@ Page 1 of 1</pre>
     <p class="coffee-hint"><i class="fas fa-mobile-alt"></i> Point your phone camera at the code</p>
   </div>
 </div>
+
+<!-- PRINT SURFACE: populated on demand by js/formio.js, hidden on screen -->
+<div id="printSurface" aria-hidden="true"></div>
 
 <script type="module" src="js/app.js"></script>
 </body>

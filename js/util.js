@@ -1,5 +1,5 @@
 /**
- * FormForge — shared helpers
+ * Format_Maker — shared helpers
  * - escapeHtml: prevents XSS when injecting user/scanned content into innerHTML
  * - openOverlay / closeOverlay / trapFocus: accessible modal behavior
  *   (focus moves into the overlay, Tab is trapped, focus is restored on close)

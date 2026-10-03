@@ -1,5 +1,5 @@
 /**
- * FormForge — Form Builder & Document Scanner
+ * Format_Maker — Form Builder & Document Scanner
  * v6 (folder) · r9 (code) — ES modules refactor
  *
  * Changelog r9:
@@ -33,13 +33,17 @@ import ExportManager from './exporter.js';
 import PreviewManager from './preview.js';
 import SampleGenerator from './sample.js';
 import DocumentScanner from './scanner.js';
+import SettingsEditor from './settings.js';
+import FormIO from './formio.js';
 import { openOverlay, closeOverlay, trapFocus, showToast } from './util.js';
 
-const OVERLAYS = ['modalOverlay', 'helpModal', 'scanModal', 'pdfPreviewOverlay', 'txtPreviewOverlay', 'docxPreviewOverlay', 'aboutModal', 'coffeeModal'];
+const OVERLAYS = ['modalOverlay', 'helpModal', 'scanModal', 'pdfPreviewOverlay', 'txtPreviewOverlay', 'docxPreviewOverlay', 'aboutModal', 'coffeeModal', 'settingsModal'];
 
 const App = {
   init() {
     FormState.init();
+    this.applyTheme();
+    SettingsEditor.init();
     this.setupEventListeners();
     DOMRenderer.render();
     this.applyLibStatus();
@@ -70,6 +74,7 @@ const App = {
         const el = document.getElementById(OVERLAYS[i]);
         if (el && !el.classList.contains('hidden')) {
           if (OVERLAYS[i] === 'modalOverlay') ModalManager.closeModal();
+          else if (OVERLAYS[i] === 'settingsModal') SettingsEditor.close();
           else closeOverlay(el);
           break;
         }
@@ -77,7 +82,41 @@ const App = {
     });
 
     document.getElementById('darkToggle').addEventListener('click', () => {
-      document.body.classList.toggle('dark');
+      const isDark = document.body.classList.toggle('dark');
+      FormState.prefs.theme = isDark ? 'dark' : 'light';
+      FormState.savePrefs();
+      this.updateDarkToggleLabel();
+    });
+
+    // Document settings (letterhead + footer) — opened from two places.
+    document.getElementById('settingsBtn').addEventListener('click', () => SettingsEditor.open());
+    document.getElementById('settingsBtnCarousel').addEventListener('click', () => SettingsEditor.open());
+    document.getElementById('closeSettingsBtn').addEventListener('click', () => SettingsEditor.close());
+    document.getElementById('applySettingsBtn').addEventListener('click', () => SettingsEditor.apply());
+    document.getElementById('addLetterheadBtn').addEventListener('click', () => SettingsEditor.addLine());
+    document.getElementById('resetSettingsBtn').addEventListener('click', () => {
+      if (confirm('Reset letterhead and footer to the defaults?')) SettingsEditor.reset();
+    });
+
+    // Form file IO + print
+    document.getElementById('exportFormBtn').addEventListener('click', () => FormIO.exportForm());
+    document.getElementById('importFormBtn').addEventListener('click', () => FormIO.importForm());
+    document.getElementById('printBtn').addEventListener('click', () => FormIO.printForm());
+    document.getElementById('previewPrintBtn').addEventListener('click', () => FormIO.printForm());
+
+    // Block search / filter
+    const searchInput = document.getElementById('blockSearch');
+    const searchClear = document.getElementById('blockSearchClear');
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.trim();
+      searchClear.classList.toggle('hidden', query.length === 0);
+      DOMRenderer.setFilter(query);
+    });
+    searchClear.addEventListener('click', () => {
+      searchInput.value = '';
+      searchClear.classList.add('hidden');
+      DOMRenderer.setFilter('');
+      searchInput.focus();
     });
 
     document.getElementById('modeBuilder').addEventListener('click', () => {
@@ -107,6 +146,16 @@ const App = {
     });
     document.getElementById('clearAllBtn').addEventListener('click', () => {
       if (confirm('Erase all blocks?')) { FormState.clearAll(); DOMRenderer.render(); }
+    });
+
+    // Ctrl/Cmd+F focuses the block filter instead of the browser's find bar —
+    // the block list is the only thing worth searching on this page.
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+      }
     });
 
     document.addEventListener('keydown', (e) => {
@@ -232,7 +281,7 @@ const App = {
             ? '<i class="fas fa-history" style="color:#6366f1;"></i> Changelog'
             : tab === 'credits'
               ? '<i class="fas fa-heart" style="color:#f43f5e;"></i> Credits'
-              : '<i class="fas fa-info-circle" style="color:#6366f1;"></i> About FormForge';
+              : '<i class="fas fa-info-circle" style="color:#6366f1;"></i> About Format_Maker';
     };
     const openAbout = (tab) => { switchAboutTab(tab); openOverlay(document.getElementById('aboutModal')); };
     document.getElementById('aboutBtn').addEventListener('click', () => openAbout('about'));
@@ -257,7 +306,35 @@ const App = {
 
     // Apply library status when the CDN loader finishes (and at init, if it
     // already finished before the app booted)
-    document.addEventListener('formforge:libs-settled', () => this.applyLibStatus());
+    document.addEventListener('formatmaker:libs-settled', () => this.applyLibStatus());
+  },
+
+  /**
+   * Apply the saved theme + accent before first paint so a dark-mode user
+   * never gets a white flash. 'system' follows the OS preference and keeps
+   * following it via the media-query listener.
+   */
+  applyTheme() {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const resolve = () => {
+      const theme = FormState.prefs.theme;
+      const dark = theme === 'dark' || (theme === 'system' && media.matches);
+      document.body.classList.toggle('dark', dark);
+      this.updateDarkToggleLabel();
+    };
+    resolve();
+    // Only follow the OS while the user hasn't made an explicit choice.
+    media.addEventListener('change', () => {
+      if (FormState.prefs.theme === 'system') resolve();
+    });
+  },
+
+  updateDarkToggleLabel() {
+    const btn = document.getElementById('darkToggle');
+    if (!btn) return;
+    const dark = document.body.classList.contains('dark');
+    btn.innerHTML = `<i class="fas fa-${dark ? 'sun' : 'moon'}"></i> ${dark ? 'Light' : 'Dark'}`;
+    btn.setAttribute('aria-pressed', String(dark));
   },
 
   setupScanHandlers() {
@@ -344,7 +421,7 @@ const App = {
 
   /** Disable features whose CDN library failed to load, and show the banner. */
   applyLibStatus() {
-    const cdn = window.FormForgeCDN;
+    const cdn = window.FormatMakerCDN;
     if (!cdn) return;
     const status = cdn.status || {};
     const setDisabled = (id, disabled) => {

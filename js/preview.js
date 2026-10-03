@@ -1,5 +1,5 @@
 /**
- * FormForge — Preview Manager
+ * Format_Maker — Preview Manager
  *
  * Opens in-app previews of the generated PDF (a DOM approximation), TXT and
  * DOCX. Uses openOverlay/closeOverlay for accessible focus handling.

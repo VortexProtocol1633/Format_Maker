@@ -1,3 +1,30 @@
+/* ===================== DESIGN TOKENS ===================== */
+:root {
+  /* UI typeface. Applies to app chrome only — never to exported content,
+     which carries its own per-block family (see --doc-font). */
+  --ui-font: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --display-font: 'Sora', var(--ui-font);
+  /* Fallback for form content that has no explicit family of its own. */
+  --doc-font: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+
+  /* Accent ramp. Rewritten by [data-accent] on <html> so the theme switcher
+     only has to change one attribute. */
+  --accent: #6366f1;
+  --accent-2: #8b5cf6;
+  --accent-soft: rgba(99, 102, 241, 0.12);
+  --accent-glow: rgba(99, 102, 241, 0.35);
+
+  --radius-sm: 0.8rem;
+  --radius-md: 1.2rem;
+  --radius-lg: 2rem;
+  --radius-xl: 2.4rem;
+}
+
+[data-accent="violet"]  { --accent: #8b5cf6; --accent-2: #a855f7; --accent-soft: rgba(139, 92, 246, 0.12); --accent-glow: rgba(139, 92, 246, 0.35); }
+[data-accent="emerald"] { --accent: #10b981; --accent-2: #14b8a6; --accent-soft: rgba(16, 185, 129, 0.12); --accent-glow: rgba(16, 185, 129, 0.35); }
+[data-accent="rose"]    { --accent: #f43f5e; --accent-2: #fb7185; --accent-soft: rgba(244, 63, 94, 0.12);  --accent-glow: rgba(244, 63, 94, 0.35); }
+[data-accent="amber"]   { --accent: #f59e0b; --accent-2: #fbbf24; --accent-soft: rgba(245, 158, 11, 0.14); --accent-glow: rgba(245, 158, 11, 0.35); }
+
 /* ----- RESET & BASE ----- */
 * {
   margin: 0;
@@ -6,12 +33,20 @@
   transition: background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, transform 0.3s;
 }
 
-/* The app font lives on the root and flows down by inheritance. (Putting it
-   on * instead would block per-block fonts: every descendant would be
-   forced back to the default instead of inheriting a block's chosen
-   family.) Arial is the app-wide default; each block can override it. */
+/* The UI font lives on the root and flows down by inheritance. (Putting it
+   on * instead would block per-block document fonts: every descendant would
+   be forced back to the UI face instead of inheriting a block's chosen
+   family.) Each form block sets its own font-family inline, so app chrome can
+   be Poppins without touching exported typography. */
 html, body {
-  font-family: Arial, 'Helvetica Neue', Helvetica, system-ui, sans-serif;
+  font-family: var(--ui-font);
+}
+
+/* Form content falls back to a document face, not the UI face. */
+.preview-content,
+.preview-table,
+.outline-tree {
+  font-family: var(--doc-font);
 }
 
 body {
@@ -208,19 +243,21 @@ body.dark .glass:hover {
 }
 
 .logo-text {
-  font-size: 2.2rem;
+  font-family: var(--display-font);
+  font-size: 2rem;
   font-weight: 800;
-  letter-spacing: -1px;
-  background: linear-gradient(145deg, #1e293b, #4f46e5);
+  letter-spacing: -0.5px;
+  background: linear-gradient(145deg, #1e293b, var(--accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   animation: textShimmer 3s ease-in-out infinite;
   position: relative;
+  white-space: nowrap;
 }
 
 body.dark .logo-text {
-  background: linear-gradient(145deg, #eef3fc, #a5b4fc);
+  background: linear-gradient(145deg, #eef3fc, var(--accent-2));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -254,6 +291,10 @@ body.dark .logo-text {
   gap: 0.7rem;
   overflow-x: auto;
   flex: 1;
+  /* flex items default to min-width:auto, which stops this strip from
+     shrinking below its content and pushes the page wider on phones.
+     min-width:0 is what lets it actually scroll. */
+  min-width: 0;
   padding: 0.3rem 0.1rem;
   /* Glass scrollbar — horizontal thumb styled below in the carousel block */
   scrollbar-width: thin;
@@ -396,11 +437,13 @@ body.dark .panel:hover, body.dark .preview-paper:hover {
 }
 
 .panel-header h3 {
+  font-family: var(--display-font);
   font-weight: 600;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  letter-spacing: -0.02em;
 }
 
 /* ----- BLOCK LIST ----- */
@@ -1004,7 +1047,15 @@ body.dark #helpModal .modal-box pre em {
 }
 
 @media (max-width: 600px) {
-  .template-carousel { flex-direction: column; align-items: stretch; }
+  /* Stack the carousel vertically. flex-wrap must be turned OFF here: with
+     flex-direction:column, wrapping lays items out in side-by-side COLUMNS,
+     which silently widened the page and forced a horizontal scrollbar. */
+  .template-carousel {
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+  }
+  .carousel-scroll { flex: 0 0 auto; width: 100%; }
   .add-block-trigger { flex-direction: column; }
   .logo-text { font-size: 1.5rem; }
   .logo-icon { width: 42px; height: 42px; font-size: 1.4rem; }
@@ -1940,4 +1991,393 @@ body.dark .coffee-hint { color: #fbbf24; }
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ================================================================
+   v1.0 — Poppins UI, accent tokens, search, settings modal, print
+   ================================================================ */
+
+/* --- r9 forced Arial on headings; app chrome now uses Poppins/Sora.
+       Preview + exports are excluded so document fonts are untouched. --- */
+.panel-header h3,
+.preview-header h3,
+.brand-header .logo-text,
+.modal-box h4,
+.modal-box h5,
+.about-lede {
+  font-family: var(--display-font);
+  letter-spacing: -0.015em;
+}
+.preview-header h3 {
+  font-family: var(--ui-font);
+}
+
+/* Accent-aware replacements for hard-coded indigo highlights */
+.panel-header h3 i,
+.preview-header h3 i { color: var(--accent); }
+
+/* --- Buttons: consistent height and alignment across every variant --- */
+.btn-icon,
+.btn-primary,
+.btn-secondary,
+.btn-success,
+.btn-danger,
+.btn-add-block,
+.dark-toggle,
+.mode-toggle button,
+.export-actions button {
+  font-family: var(--ui-font);
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  justify-content: center;
+}
+.btn-primary,
+.btn-secondary,
+.btn-success {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 40px;
+  padding: 0.55rem 1.2rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #1e293b;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-primary:hover,
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.7);
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 8px 20px var(--accent-soft);
+}
+.btn-success {
+  background: linear-gradient(145deg, #22c55e, #16a34a);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.25);
+}
+.btn-success:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(34, 197, 94, 0.35); }
+body.dark .btn-primary,
+body.dark .btn-secondary,
+body.dark .btn-icon {
+  background: rgba(30, 41, 59, 0.4);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+body.dark .btn-primary:hover,
+body.dark .btn-secondary:hover,
+body.dark .btn-icon:hover {
+  background: rgba(50, 65, 95, 0.6);
+  box-shadow: 0 8px 24px var(--accent-soft);
+}
+.btn-sm { padding: 0.3rem 0.8rem; font-size: 0.75rem; border-radius: 30px; }
+
+/* --- Block list: toolbar, search, count, empty states --- */
+.block-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+.search-box {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+}
+.search-box > i {
+  position: absolute;
+  left: 0.95rem;
+  color: #64748b;
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+.search-box input {
+  width: 100%;
+  padding: 0.55rem 2.4rem;
+  border-radius: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+  font-size: 0.85rem;
+  color: inherit;
+  transition: all 0.3s;
+}
+.search-box input::placeholder { color: #94a3b8; }
+.search-box input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  background: rgba(255, 255, 255, 0.55);
+}
+.search-box input::-webkit-search-cancel-button { display: none; }
+body.dark .search-box input {
+  background: rgba(30, 41, 59, 0.4);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+body.dark .search-box input:focus { background: rgba(30, 41, 59, 0.6); }
+.search-clear {
+  position: absolute;
+  right: 0.7rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 0.15rem 0.3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+}
+.search-clear:hover { color: var(--accent); background: var(--accent-soft); }
+
+.block-count {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+  padding: 0.25rem 0.7rem;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+body.dark .block-count {
+  background: rgba(30, 41, 59, 0.4);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+}
+
+.block-empty {
+  padding: 1.6rem 1rem;
+  text-align: center;
+  opacity: 0.55;
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.block-empty i { font-size: 1.6rem; }
+
+.block-label {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.row-actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.row-actions .btn-secondary { flex: 1 1 auto; }
+
+/* --- Settings modal --- */
+.settings-box { max-width: 680px; max-height: 88vh; overflow: hidden; display: flex; flex-direction: column; }
+.settings-hint { font-size: 0.8rem; opacity: 0.65; margin-top: -0.6rem; margin-bottom: 0.4rem; }
+.settings-box .modal-scroll-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.settings-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.2rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+body.dark .settings-section { border-bottom-color: rgba(255, 255, 255, 0.06); }
+.settings-section:last-child { border-bottom: none; margin-bottom: 0; }
+.settings-section h5 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+  margin-bottom: 0.8rem;
+  font-weight: 600;
+}
+.settings-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+.settings-section-head h5 { margin-bottom: 0; }
+.hint-inline { font-weight: 400; text-transform: none; letter-spacing: 0; opacity: 0.75; }
+.hint-inline code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  background: var(--accent-soft);
+  padding: 0.05rem 0.3rem;
+  border-radius: 5px;
+}
+
+.letterhead-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.letterhead-empty {
+  font-size: 0.8rem;
+  opacity: 0.6;
+  font-style: italic;
+  padding: 0.8rem 0;
+}
+.letterhead-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.letterhead-grip { color: #94a3b8; font-size: 0.75rem; flex: 0 0 auto; }
+.letterhead-text { flex: 1 1 auto; min-width: 0; margin: 0 !important; }
+.letterhead-align { width: auto !important; flex: 0 0 4.2rem; margin: 0 !important; }
+.letterhead-size { width: 4.5rem !important; flex: 0 0 4.5rem; margin: 0 !important; padding: 0.55rem 0.5rem !important; text-align: center; }
+.letterhead-bold,
+.letterhead-remove {
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s;
+}
+body.dark .letterhead-bold,
+body.dark .letterhead-remove { background: rgba(30, 41, 59, 0.5); border-color: rgba(255,255,255,0.08); }
+.letterhead-bold:hover, .letterhead-bold.active {
+  background: var(--accent); color: white; border-color: transparent;
+}
+.letterhead-remove:hover { background: #ef4444; color: white; border-color: transparent; }
+
+.settings-preview {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-md);
+  padding: 1.2rem 1.4rem;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  color: #0b1a33;
+}
+body.dark .settings-preview { background: rgba(255, 255, 255, 0.9); }
+.settings-preview-line { line-height: 1.35; margin-bottom: 0.1rem; }
+.settings-preview-rule { border: none; border-top: 1px solid #cbd5e1; margin: 0.7rem 0; }
+.settings-preview-foot {
+  margin-top: auto;
+  padding-top: 2.5rem;
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+/* --- Carousel label --- */
+.carousel-label { font-weight: 500; font-size: 0.9rem; white-space: nowrap; }
+
+/* --- Print surface: hidden on screen, the only thing on paper --- */
+/* Hidden on screen and revealed only inside @media print. Nothing is ever
+   shown over the app, so cancelling the print dialog leaves no flash and
+   requires no cleanup timer. */
+#printSurface { display: none; }
+.print-sheet { font-family: var(--doc-font); color: #000; }
+.print-letterhead { margin-bottom: 0.5rem; }
+.print-rule { border: none; border-top: 1px solid #000; margin: 0.5rem 0 1rem; }
+.print-body { min-height: 60vh; }
+.print-blank {
+  display: inline-block;
+  min-width: 45%;
+  border-bottom: 1px solid #000;
+  height: 1em;
+  vertical-align: baseline;
+}
+.print-footer { margin-top: 1.5rem; font-size: 0.75rem; }
+.print-table { border-collapse: collapse; width: 100%; margin-bottom: 0.5rem; }
+.print-table td { border: 1px solid #000; padding: 4px 6px; height: 1.6em; vertical-align: top; }
+
+@media print {
+  @page { margin: 1.2cm; }
+  html, body { background: #fff !important; padding: 0; }
+  body::before, body::after { display: none !important; }
+  /* #printSurface is the only thing that reaches the printer. */
+  body > *:not(#printSurface) { display: none !important; }
+  #printSurface { display: block; }
+  .print-blank { min-width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-icon:hover, .btn-primary:hover, .btn-secondary:hover,
+  .btn-success:hover, .letterhead-row button:hover { transform: none; }
+}
+
+/* --- Keyboard shortcut list in the About dialog --- */
+.shortcut-list { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+.shortcut-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+.shortcut-list span { margin-left: auto; opacity: 0.7; }
+kbd {
+  font-family: var(--ui-font);
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom-width: 2px;
+  color: #334155;
+  white-space: nowrap;
+}
+body.dark kbd {
+  background: rgba(50, 65, 95, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+/* --- Consistent control heights -------------------------------------------
+   .btn-icon / .btn-primary / .btn-secondary / .btn-success / .dark-toggle all
+   share one height and padding so rows of controls sit on a common baseline.
+   Fixed line-height + explicit height also stops icon fonts from nudging the
+   box by a pixel. */
+.btn-icon,
+.btn-primary,
+.btn-secondary,
+.btn-success,
+.dark-toggle,
+.mode-toggle button {
+  min-height: 2.4rem;
+  height: 2.4rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1;
+  box-sizing: border-box;
+}
+.btn-icon,
+.dark-toggle { padding-left: 1.1rem; padding-right: 1.1rem; }
+.btn-add-block { min-height: 2.9rem; }
+
+/* The header and carousel action rows are dense on small screens — let them
+   wrap to full-width pills rather than overflowing. */
+@media (max-width: 600px) {
+  .header-actions,
+  .carousel-actions,
+  .export-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7.2rem, 1fr));
+    gap: 0.5rem;
+    width: 100%;
+  }
+  .header-actions > *,
+  .carousel-actions > *,
+  .export-actions > * { width: 100%; }
+  .brand-header { justify-content: center; text-align: center; }
+  .logo-text { font-size: 1.6rem; }
+  .logo-icon { width: 44px; height: 44px; font-size: 1.4rem; border-radius: 14px; }
+  .template-carousel { padding: 0.9rem 1rem; gap: 0.7rem; }
+  .panel, .preview-paper { border-radius: 1.6rem; padding: 1.2rem 1rem; }
 }

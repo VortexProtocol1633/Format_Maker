@@ -1,5 +1,5 @@
 /**
- * FormForge — Document Scanner
+ * Format_Maker — Document Scanner
  *
  * Parses an uploaded PDF (pdf.js) or DOCX (mammoth) into editable form blocks.
  *
@@ -39,7 +39,7 @@ function ensurePdfWorker() {
 //   3. lazily, right before each PDF parse (see scanPDF below)
 //   …and the short poll below as a final safety net.
 ensurePdfWorker();
-window.addEventListener('formforge:libs-settled', ensurePdfWorker);
+window.addEventListener('formatmaker:libs-settled', ensurePdfWorker);
 
 // Final safety net: if pdf.js ever arrives without the settle event reaching
 // this module (ordering regression, cached copy, etc.), poll briefly until the
